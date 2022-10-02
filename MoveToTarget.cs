@@ -28,9 +28,9 @@ namespace SpaceEngineers
         string connectorName = "Connector";
         string cockpitName = "ControlSeat";
         string thrustersGroupName = "Thrusters";
-        double kp = 3;
+        double kp = 4;
         double ki = 0;
-        double kd = 3;
+        double kd = 20;
         
         //double gyroKoef = 1.0;
 
