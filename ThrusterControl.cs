@@ -19,146 +19,80 @@ namespace SpaceEngineers
 {
     public class ThrusterControl
     {
-        private List<IMyThrust> _forwardThrusters;
-        private List<IMyThrust> _backwardThrusters;
-        private List<IMyThrust> _leftThrusters;
-        private List<IMyThrust> _rightThrusters;
-        private List<IMyThrust> _upThrusters;
-        private List<IMyThrust> _downThrusters;
+        private List<IMyThrust>[] _thrusters;
 
-        public double ForwardMaxThrust { get; protected set; } = 0;
-        public double BackwardMaxThrust { get; protected set; } = 0;
-        public double LeftMaxThrust { get; protected set; } = 0;
-        public double RightMaxThrust { get; protected set; } = 0;
-        public double UpMaxThrust { get; protected set; } = 0;
-        public double DownMaxThrust { get; protected set; } = 0;
+        private double[] _maxThrusts;
 
         private IMyCockpit _cockpit;
+        private Vector3D[] _cockpitDirections;
 
         public ThrusterControl(Program program, string mainCockpitName, string thrustersGroupName)
         {
+            _maxThrusts = new double[6];
+            _thrusters = new List<IMyThrust>[6];
+            _cockpitDirections = new Vector3D[6];
+            for (int i = 0; i < 6; ++i)
+            {
+                _thrusters[i] = new List<IMyThrust>();
+                _cockpitDirections[i] = new Vector3D();
+                _maxThrusts[i] = 0;
+            }
+            
             _cockpit = program.GridTerminalSystem.GetBlockWithName(mainCockpitName) as IMyCockpit;
             Matrix cockpitMatrix;
             _cockpit.Orientation.GetMatrix(out cockpitMatrix);
 
-            _forwardThrusters = new List<IMyThrust>();
-            program.GridTerminalSystem.GetBlockGroupWithName(thrustersGroupName).GetBlocksOfType<IMyThrust>(_forwardThrusters, (thruster) =>
+            _cockpitDirections[(int)Base6Directions.Direction.Forward] = cockpitMatrix.Forward;
+            _cockpitDirections[(int)Base6Directions.Direction.Backward] = cockpitMatrix.Backward;
+            _cockpitDirections[(int)Base6Directions.Direction.Left] = cockpitMatrix.Left;
+            _cockpitDirections[(int)Base6Directions.Direction.Right] = cockpitMatrix.Right;
+            _cockpitDirections[(int)Base6Directions.Direction.Up] = cockpitMatrix.Up;
+            _cockpitDirections[(int)Base6Directions.Direction.Down] = cockpitMatrix.Down;
+
+            foreach (Base6Directions.Direction direction in Enum.GetValues(typeof(Base6Directions.Direction)))
             {
-                Matrix thrusterMatrix;
-                thruster.Orientation.GetMatrix(out thrusterMatrix);
-                if (thrusterMatrix.Forward == cockpitMatrix.Backward) return true;
-                return false;
-            });
-            _backwardThrusters = new List<IMyThrust>();
-            program.GridTerminalSystem.GetBlockGroupWithName(thrustersGroupName).GetBlocksOfType<IMyThrust>(_backwardThrusters, (thruster) =>
-            {
-                Matrix thrusterMatrix;
-                thruster.Orientation.GetMatrix(out thrusterMatrix);
-                if (thrusterMatrix.Forward == cockpitMatrix.Forward) return true;
-                return false;
-            });
-            _leftThrusters = new List<IMyThrust>();
-            program.GridTerminalSystem.GetBlockGroupWithName(thrustersGroupName).GetBlocksOfType<IMyThrust>(_leftThrusters, (thruster) =>
-            {
-                Matrix thrusterMatrix;
-                thruster.Orientation.GetMatrix(out thrusterMatrix);
-                if (thrusterMatrix.Forward == cockpitMatrix.Right) return true;
-                return false;
-            });
-            _rightThrusters = new List<IMyThrust>();
-            program.GridTerminalSystem.GetBlockGroupWithName(thrustersGroupName).GetBlocksOfType<IMyThrust>(_rightThrusters, (thruster) =>
-            {
-                Matrix thrusterMatrix;
-                thruster.Orientation.GetMatrix(out thrusterMatrix);
-                if (thrusterMatrix.Forward == cockpitMatrix.Left) return true;
-                return false;
-            });
-            _upThrusters = new List<IMyThrust>();
-            program.GridTerminalSystem.GetBlockGroupWithName(thrustersGroupName).GetBlocksOfType<IMyThrust>(_upThrusters, (thruster) =>
-            {
-                Matrix thrusterMatrix;
-                thruster.Orientation.GetMatrix(out thrusterMatrix);
-                if (thrusterMatrix.Forward == cockpitMatrix.Down) return true;
-                return false;
-            });
-            _downThrusters = new List<IMyThrust>();
-            program.GridTerminalSystem.GetBlockGroupWithName(thrustersGroupName).GetBlocksOfType<IMyThrust>(_downThrusters, (thruster) =>
-            {
-                Matrix thrusterMatrix;
-                thruster.Orientation.GetMatrix(out thrusterMatrix);
-                if (thrusterMatrix.Forward == cockpitMatrix.Up) return true;
-                return false;
-            });
+                program.GridTerminalSystem.GetBlockGroupWithName(thrustersGroupName).GetBlocksOfType<IMyThrust>(_thrusters[(int)direction], (thruster) =>
+                {
+                    Matrix thrusterMatrix;
+                    thruster.Orientation.GetMatrix(out thrusterMatrix);
+                    return (thrusterMatrix.Backward == _cockpitDirections[(int)direction]);
+                });
+            }
         }
 
         private void CalculateMaxThrust()
         {
-            ForwardMaxThrust = 0;
-            foreach (IMyThrust thruster in _forwardThrusters)
+            foreach (Base6Directions.Direction direction in Enum.GetValues(typeof(Base6Directions.Direction)))
             {
-                ForwardMaxThrust += thruster.MaxEffectiveThrust;
-            }
-            BackwardMaxThrust = 0;
-            foreach (IMyThrust thruster in _backwardThrusters)
-            {
-                BackwardMaxThrust += thruster.MaxEffectiveThrust;
-            }
-            LeftMaxThrust = 0;
-            foreach (IMyThrust thruster in _leftThrusters)
-            {
-                LeftMaxThrust += thruster.MaxEffectiveThrust;
-            }
-            RightMaxThrust = 0;
-            foreach (IMyThrust thruster in _rightThrusters)
-            {
-                RightMaxThrust += thruster.MaxEffectiveThrust;
-            }
-            UpMaxThrust = 0;
-            foreach (IMyThrust thruster in _upThrusters)
-            {
-                UpMaxThrust += thruster.MaxEffectiveThrust;
-            }
-            DownMaxThrust = 0;
-            foreach (IMyThrust thruster in _downThrusters)
-            {
-                DownMaxThrust += thruster.MaxEffectiveThrust;
+                _maxThrusts[(int)direction] = 0;
+                foreach(IMyThrust thruster in _thrusters[(int)direction])
+                {
+                    _maxThrusts[(int)direction] += thruster.MaxEffectiveThrust;
+                }
             }
         }
 
         public void SetThrust(Vector3D acceleration)
         {
             CalculateMaxThrust();
-            Matrix cockpitMatrix = _cockpit.WorldMatrix;
             double shipMass = _cockpit.CalculateShipMass().PhysicalMass;
-            float force = (float)(acceleration.Dot(cockpitMatrix.Forward) * shipMass / ForwardMaxThrust);
-            foreach (IMyThrust thruster in _forwardThrusters)
+
+            Matrix cockpitWorldMatrix = _cockpit.WorldMatrix;
+            Vector3D[] cockpitWorldDirections = new Vector3D[6];
+            cockpitWorldDirections[(int)Base6Directions.Direction.Forward] = cockpitWorldMatrix.Forward;
+            cockpitWorldDirections[(int)Base6Directions.Direction.Backward] = cockpitWorldMatrix.Backward;
+            cockpitWorldDirections[(int)Base6Directions.Direction.Left] = cockpitWorldMatrix.Left;
+            cockpitWorldDirections[(int)Base6Directions.Direction.Right] = cockpitWorldMatrix.Right;
+            cockpitWorldDirections[(int)Base6Directions.Direction.Up] = cockpitWorldMatrix.Up;
+            cockpitWorldDirections[(int)Base6Directions.Direction.Down] = cockpitWorldMatrix.Down;
+
+            foreach (Base6Directions.Direction direction in Enum.GetValues(typeof(Base6Directions.Direction)))
             {
-                thruster.ThrustOverridePercentage = force;
-            }
-            force = (float)(acceleration.Dot(cockpitMatrix.Backward) * shipMass / BackwardMaxThrust);
-            foreach (IMyThrust thruster in _backwardThrusters)
-            {
-                thruster.ThrustOverridePercentage = force;
-            }
-            force = (float)(acceleration.Dot(cockpitMatrix.Left) * shipMass / LeftMaxThrust);
-            foreach (IMyThrust thruster in _leftThrusters)
-            {
-                thruster.ThrustOverridePercentage = force;
-            }
-            force = (float)(acceleration.Dot(cockpitMatrix.Right) * shipMass / RightMaxThrust);
-            foreach (IMyThrust thruster in _rightThrusters)
-            {
-                thruster.ThrustOverridePercentage = force;
-            }
-            force = (float)(acceleration.Dot(cockpitMatrix.Up) * shipMass / UpMaxThrust);
-            foreach (IMyThrust thruster in _upThrusters)
-            {
-                thruster.ThrustOverridePercentage = force;
-            }
-            force = (float)(acceleration.Dot(cockpitMatrix.Down) * shipMass / DownMaxThrust);
-            foreach (IMyThrust thruster in _downThrusters)
-            {
-                thruster.ThrustOverridePercentage = force;
+                float force = (float)(acceleration.Dot(cockpitWorldDirections[(int)direction]) * shipMass / _maxThrusts[(int)direction]);
+                foreach (IMyThrust thruster in _thrusters[(int)direction])
+                {
+                    thruster.ThrustOverridePercentage = force;
+                }
             }
         }
 
